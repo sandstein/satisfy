@@ -1,13 +1,18 @@
-version: '2'
+version: '3'
 services:
-  satisfy:
-    container_name: satisfy
-    build: ./docker
-    volumes:
-      - .:/var/www/satisfy
-    environment:
-      APP_PATH: /var/www/satisfy
-      APP_ENV: dev
-      APP_DEBUG: 0
+  php:
+    build:
+      context: ./docker/php
+    container_name: satisfy_php
+    working_dir: /var/www/html
     ports:
-      - "80:80"
+      - "${APP_PORT:-8000}:80"
+    volumes:
+      - .:/var/www/html
+      - ./docker/php/unit.json:/docker-entrypoint.d/config.json
+      - /var/www/.composer
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      APP_DEBUG: ${APP_DEBUG:-1}
+      APP_PATH: /var/www/html
+      COMPOSER_HOME: /var/www/.composer

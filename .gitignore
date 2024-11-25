@@ -1,16 +1,20 @@
+.env.local
+.env.local.php
+.env.prod.local
 config/parameters.yml
 /bin
 /vendor/
 /composer.phar
 /var/*
 /.composer
+.phpunit.cache
 
 # Satis default configuration
 satis.json
 public/packages.json
 public/index.html
 public/include/*
-public/p
+public/p*
 
 # Test
 .atoum.php

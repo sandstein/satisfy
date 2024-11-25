@@ -2,31 +2,65 @@
 
 namespace Playbloom\Satisfy\Webhook;
 
+use InvalidArgumentException;
+use Laminas\Diactoros\ResponseFactory;
+use Laminas\Diactoros\ServerRequestFactory;
+use Laminas\Diactoros\StreamFactory;
+use Laminas\Diactoros\UploadedFileFactory;
+use Playbloom\Satisfy\Model\Repository;
 use Playbloom\Satisfy\Model\RepositoryInterface;
 use Playbloom\Satisfy\Service\Manager;
+use Psr\Http\Message\RequestInterface;
 use Swop\GitHubWebHook\Event\GitHubEventFactory;
 use Swop\GitHubWebHook\Exception\GitHubWebHookException;
 use Swop\GitHubWebHook\Exception\InvalidGitHubRequestSignatureException;
 use Swop\GitHubWebHook\Security\SignatureValidator;
-use Symfony\Bridge\PsrHttpMessage\Factory\DiactorosFactory;
+use Symfony\Bridge\PsrHttpMessage\Factory\PsrHttpFactory;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
+use Throwable;
 
 class GithubWebhook extends AbstractWebhook
 {
-    public function __construct(Manager $manager, EventDispatcherInterface $dispatcher, ?string $secret = null)
+    /** @var string[] */
+    protected array $sourceUrls = ['git_url', 'ssh_url', 'clone_url', 'svn_url'];
+
+    protected bool $autoAdd = false;
+
+    protected string $autoAddType = '';
+
+    /**
+     * @param string[] $sourceUrls
+     *
+     * @return $this
+     */
+    public function setSourceUrls(array $sourceUrls): self
     {
-        parent::__construct($manager, $dispatcher);
-        $this->secret = $secret;
+        $this->sourceUrls = $sourceUrls;
+
+        return $this;
     }
 
-    public function setSecret(string $secret = null): self
+    /**
+     * @return $this
+     */
+    public function setAutoAdd(bool $autoAdd): self
     {
-        $this->secret = $secret;
+        $this->autoAdd = $autoAdd;
+
+        return $this;
+    }
+
+    /**
+     * @return $this
+     */
+    public function setAutoAddType(string $autoAddType): self
+    {
+        $this->autoAddType = $autoAddType;
 
         return $this;
     }
@@ -44,10 +78,6 @@ class GithubWebhook extends AbstractWebhook
 
         $callback = function () use ($repository) {
             echo 'OK';
-            if (!isset($GLOBALS['__PHPUNIT_BOOTSTRAP'])) {
-                ignore_user_abort(true);
-                Response::closeOutputBuffers(0, true);
-            }
             $this->handle($repository);
         };
 
@@ -58,8 +88,7 @@ class GithubWebhook extends AbstractWebhook
     protected function validate(Request $request): void
     {
         if (!empty($this->secret)) {
-            $psr7Factory = new DiactorosFactory();
-            $psrRequest = $psr7Factory->createRequest($request);
+            $psrRequest = $this->createPsr7Request($request);
             $validator = new SignatureValidator();
             try {
                 $validator->validate($psrRequest, $this->secret);
@@ -79,8 +108,7 @@ class GithubWebhook extends AbstractWebhook
 
     protected function getRepository(Request $request): RepositoryInterface
     {
-        $psr7Factory = new DiactorosFactory();
-        $psrRequest = $psr7Factory->createRequest($request);
+        $psrRequest = $this->createPsr7Request($request);
         $eventFactory = new GitHubEventFactory();
         try {
             $event = $eventFactory->buildFromRequest($psrRequest);
@@ -92,18 +120,37 @@ class GithubWebhook extends AbstractWebhook
         $repositoryData = $payload['repository'] ?? [];
 
         $urls = [];
-        foreach (['git_url', 'ssh_url', 'clone_url', 'svn_url'] as $key) {
+        $originalUrls = [];
+        foreach ($this->sourceUrls as $key) {
             $url = $repositoryData[$key] ?? null;
             if (!empty($url)) {
+                $originalUrls[] = $url;
                 $urls[] = $this->getUrlPattern($url);
             }
         }
 
         $repository = $this->findRepository($urls);
         if (!$repository) {
-            throw new \InvalidArgumentException('Cannot find specified repository');
+            if ($this->autoAdd && !empty($originalUrls)) {
+                $repository = new Repository($originalUrls[0], $this->autoAddType);
+                $this->manager->add($repository);
+            } else {
+                throw new \InvalidArgumentException('Cannot find specified repository');
+            }
         }
 
         return $repository;
+    }
+
+    protected function createPsr7Request(Request $request): RequestInterface
+    {
+        $psr7Factory = new PsrHttpFactory(
+            new ServerRequestFactory(),
+            new StreamFactory(),
+            new UploadedFileFactory(),
+            new ResponseFactory()
+        );
+
+        return $psr7Factory->createRequest($request);
     }
 }

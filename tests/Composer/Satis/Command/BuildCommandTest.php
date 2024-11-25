@@ -25,6 +25,7 @@ class BuildCommandTest extends KernelTestCase
      */
     protected function setUp(): void
     {
+        parent::setUp();
         $this->vfsRoot = vfsStream::setup();
     }
 
@@ -34,6 +35,7 @@ class BuildCommandTest extends KernelTestCase
     protected function tearDown(): void
     {
         $this->vfsRoot = null;
+        parent::tearDown();
     }
 
     public function testMissingConfigBuildMustFail()
@@ -64,7 +66,7 @@ class BuildCommandTest extends KernelTestCase
         $application = $this->createSatisApplication();
         $exitCode = $application->run($input, $output);
 
-        $this->assertEquals(0, $exitCode);
+        $this->assertEquals(0, $exitCode, $output->fetch());
         $this->assertTrue($outputDir->hasChild('index.html'));
         $this->assertTrue($outputDir->hasChild('packages.json'));
         $this->assertTrue($outputDir->hasChild('include'));
@@ -109,10 +111,7 @@ class BuildCommandTest extends KernelTestCase
         $this->assertTrue($include->hasChildren());
     }
 
-    /**
-     * @return Application
-     */
-    protected function createSatisApplication()
+    protected function createSatisApplication(): Application
     {
         $application = new Application();
         $application->setAutoExit(false);
@@ -125,20 +124,14 @@ class BuildCommandTest extends KernelTestCase
         return new BufferedOutput();
     }
 
-    /**
-     * @param string $file
-     * @param string $outputDir
-     *
-     * @return ArrayInput
-     */
-    protected function createInput($file, $outputDir = '')
+    protected function createInput(string $file, string $outputDir = ''): ArrayInput
     {
         $input = new ArrayInput(
             [
                 'command' => 'build',
                 'file' => $file,
                 'output-dir' => $outputDir,
-                '-vvv',
+                '-vv',
             ]
         );
 

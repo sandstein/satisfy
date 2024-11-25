@@ -8,6 +8,7 @@ use Playbloom\Satisfy\Model\Configuration;
 use Playbloom\Satisfy\Persister\JsonPersister;
 use Playbloom\Satisfy\Service\Manager;
 use Prophecy\Argument;
+use Prophecy\PhpUnit\ProphecyTrait;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Lock\Store\FlockStore;
 use Tests\Playbloom\Satisfy\Traits\SchemaValidatorTrait;
@@ -17,6 +18,7 @@ class ManagerConfigValidatorTest extends TestCase
 {
     use SchemaValidatorTrait;
     use VfsTrait;
+    use ProphecyTrait;
 
     /** @var vfsStreamFile */
     protected $config;
@@ -56,7 +58,7 @@ class ManagerConfigValidatorTest extends TestCase
         $this->assertJsonFileEqualsJsonFile($configFilename, $this->config->url());
     }
 
-    public function configFileProvider(): array
+    public static function configFileProvider(): array
     {
         return [
             [__DIR__ . '/../../../fixtures/satis-minimal.json'],

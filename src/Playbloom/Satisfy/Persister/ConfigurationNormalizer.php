@@ -2,8 +2,9 @@
 
 namespace Playbloom\Satisfy\Persister;
 
-use Playbloom\Satisfy\Model\Configuration;
+use Playbloom\Satisfy\Model\Abandoned;
 use Playbloom\Satisfy\Model\PackageConstraint;
+use Playbloom\Satisfy\Model\PackageStability;
 use Playbloom\Satisfy\Model\Repository;
 use Playbloom\Satisfy\Model\RepositoryInterface;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
@@ -16,17 +17,17 @@ class ConfigurationNormalizer implements NormalizerInterface, DenormalizerInterf
     /** @var SerializerInterface */
     private $serializer;
 
-    public function normalize($object, string $format = null, array $context = [])
+    public function normalize($object, ?string $format = null, array $context = [])
     {
         return $object;
     }
 
-    public function supportsNormalization($data, string $format = null)
+    public function supportsNormalization($data, ?string $format = null)
     {
         return false;
     }
 
-    public function denormalize($data, string $type, string $format = null, array $context = [])
+    public function denormalize($data, string $type, ?string $format = null, array $context = [])
     {
         if ($type === PackageConstraint::class . '[]') {
             return $this->denormalizeRequire($data);
@@ -36,6 +37,14 @@ class ConfigurationNormalizer implements NormalizerInterface, DenormalizerInterf
             return $this->denormalizeRepositories($data);
         }
 
+        if ($type === PackageStability::class . '[]') {
+            return $this->denormalizePackageStability($data);
+        }
+
+        if ($type === Abandoned::class . '[]') {
+            return $this->denormalizeAbandoned($data);
+        }
+
         if ($this->serializer instanceof DenormalizerInterface) {
             return $this->serializer->denormalize($data, $type, $format, $context);
         }
@@ -43,11 +52,13 @@ class ConfigurationNormalizer implements NormalizerInterface, DenormalizerInterf
         return $data;
     }
 
-    public function supportsDenormalization($data, string $type, string $format = null)
+    public function supportsDenormalization($data, string $type, ?string $format = null)
     {
         switch ($type) {
             case PackageConstraint::class . '[]':
             case RepositoryInterface::class . '[]':
+            case PackageStability::class . '[]':
+            case Abandoned::class . '[]':
                 return true;
             default:
         }
@@ -58,16 +69,6 @@ class ConfigurationNormalizer implements NormalizerInterface, DenormalizerInterf
     public function setSerializer(SerializerInterface $serializer)
     {
         $this->serializer = $serializer;
-    }
-
-    private function normalizeRequire($list)
-    {
-        $require = [];
-        foreach ($list as $constraint) {
-            $require[$constraint->getPackage()] = $constraint->getConstraint();
-        }
-
-        return $require;
     }
 
     private function denormalizeRequire($data)
@@ -89,6 +90,29 @@ class ConfigurationNormalizer implements NormalizerInterface, DenormalizerInterf
                 $repository->setInstallationSource($item['installation-source']);
             }
             $list[$repository->getId()] = $repository;
+        }
+
+        return $list;
+    }
+
+    private function denormalizePackageStability($data): array
+    {
+        $list = [];
+        foreach ($data as $package => $stability) {
+            $list[] = new PackageStability($package, $stability);
+        }
+
+        return $list;
+    }
+
+    private function denormalizeAbandoned($data): array
+    {
+        $list = [];
+        foreach ($data as $package => $replacement) {
+            if (!is_string($replacement)) {
+                $replacement = null;
+            }
+            $list[] = new Abandoned($package, $replacement);
         }
 
         return $list;

@@ -36,7 +36,11 @@ services:
   Playbloom\Satisfy\Service\Manager:
     public: true
     bind:
-      Symfony\Component\Lock\Lock: "@lock.satis"
+      Symfony\Component\Lock\LockInterface: '@lock.satis'
+
+  Playbloom\Satisfy\Model\Configuration:
+    lazy: true
+    factory: ['@Playbloom\Satisfy\Service\Manager', 'getConfig']
 
   Playbloom\Satisfy\Persister\FilePersister:
     arguments:
@@ -47,9 +51,9 @@ services:
     class: Playbloom\Satisfy\Persister\JsonPersister
     public: false
     arguments:
-      - "@Playbloom\\Satisfy\\Persister\\FilePersister"
+      - '@Playbloom\Satisfy\Persister\FilePersister'
       - "@serializer"
-      - "Playbloom\\Satisfy\\Model\\Configuration"
+      - 'Playbloom\Satisfy\Model\Configuration'
 
   Playbloom\Satisfy\Persister\ConfigurationNormalizer:
     tags:
@@ -68,7 +72,7 @@ services:
     arguments:
       $satisFilename: "%satis_filename%"
     bind:
-      Symfony\Component\Lock\Lock: "@lock.build"
+      Symfony\Component\Lock\LockInterface: "@lock.build"
     tags:
       - { name: kernel.event_listener, event: Playbloom\Satisfy\Event\BuildEvent, method: onBuild }
 
@@ -78,8 +82,19 @@ services:
 
   Playbloom\Satisfy\Webhook\GithubWebhook:
     public: true
-    arguments:
-      $secret: "%github.secret%"
+    calls:
+      - [setSecret, ["%github.secret%"]]
+      - [setSourceUrls, ["%github.source_urls%"]]
+      - [setAutoAdd, ["%github.auto_add_repo%"]]
+      - [setAutoAddType, ["%github.auto_add_repo_type%"]]
+
+  Playbloom\Satisfy\Webhook\GiteaWebhook:
+    public: true
+    calls:
+      - [setSecret, ["%gitea.secret%"]]
+      - [setSourceUrls, ["%gitea.source_urls%"]]
+      - [setAutoAdd, ["%gitea.auto_add_repo%"]]
+      - [setAutoAddType, ["%gitea.auto_add_repo_type%"]]
 
   Playbloom\Satisfy\Webhook\GitlabWebhook:
     public: true
@@ -95,3 +110,9 @@ services:
       $root: "%kernel.project_dir%"
       $satisFilename: "%satis_filename%"
       $composerHome: "%composer.home%"
+
+  Playbloom\Satisfy\Webhook\DevOpsWebhook:
+    autowire: true
+    public: true
+    arguments:
+      $secret: "%devops.secret%"

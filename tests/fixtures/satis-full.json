@@ -12,6 +12,13 @@
   "require": {
     "ludofleury\/satisfy":"*"
   },
+  "abandoned": {
+    "psr/log": true,
+    "psr/container": "psr/constainer2"
+  },
+  "blacklist": {
+    "psr/log": "0.x"
+  },
   "require-all": true,
   "require-dependencies": true,
   "require-dev-dependencies": false,
@@ -24,9 +31,15 @@
     "blacklist": [],
     "prefix-url": "http://test.com"
   },
+  "config": {
+    "process-timeout": 600
+  },
   "providers": true,
   "providers-history-size": 1,
   "minimum-stability": "dev",
+  "minimum-stability-per-package": {
+    "psr/log": "stable"
+  },
   "_comment": "",
   "pretty-print": true
 }

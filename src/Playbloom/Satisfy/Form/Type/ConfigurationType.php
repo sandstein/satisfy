@@ -2,8 +2,13 @@
 
 namespace Playbloom\Satisfy\Form\Type;
 
+use Playbloom\Satisfy\Form\DataTransformer\JsonTextTransformer;
+use Playbloom\Satisfy\Model\Abandoned;
 use Playbloom\Satisfy\Model\Configuration;
+use Playbloom\Satisfy\Model\PackageStability;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\CallbackTransformer;
+use Symfony\Component\Form\DataTransformerInterface;
 use Symfony\Component\Form\Extension\Core\Type;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\CollectionType;
@@ -11,6 +16,8 @@ use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\Extension\Core\Type\UrlType;
 use Symfony\Component\Form\FormBuilderInterface;
+use Symfony\Component\Form\FormEvent;
+use Symfony\Component\Form\FormEvents;
 use Symfony\Component\Validator\Constraints as Assert;
 
 class ConfigurationType extends AbstractType
@@ -51,6 +58,38 @@ class ConfigurationType extends AbstractType
                     new Assert\Valid(),
                 ],
             ])
+            ->add('blacklist', CollectionType::class, [
+                'required' => false,
+                'allow_add' => true,
+                'allow_delete' => true,
+                'delete_empty' => true,
+                'entry_type' => PackageConstraintType::class,
+                'prototype' => true,
+                'attr' => [
+                    'class' => 'collection_require',
+                    'rel' => 'tooltip',
+                    'data-title' => 'Package name (keys) and version constraints (values) to exclude after selecting packages',
+                ],
+                'constraints' => [
+                    new Assert\Valid(),
+                ],
+            ])
+            ->add('abandoned', CollectionType::class, [
+                'required' => false,
+                'allow_add' => true,
+                'allow_delete' => true,
+                'delete_empty' => true,
+                'entry_type' => AbandonedType::class,
+                'prototype' => true,
+                'attr' => [
+                    'class' => 'collection_require',
+                    'rel' => 'tooltip',
+                    'data-title' => 'List of packages marked as abandoned for this repository',
+                ],
+                'constraints' => [
+                    new Assert\Valid(),
+                ],
+            ])
             ->add('requireAll', Type\CheckboxType::class, [
                 'required' => false,
                 'attr' => [
@@ -75,12 +114,23 @@ END
             ])
             ->add('minimumStability', ChoiceType::class, [
                 'required' => false,
-                'choices' => [
-                    'dev' => 'dev',
-                    'alpha' => 'alpha',
-                    'beta' => 'beta',
-                    'RC' => 'RC',
-                    'stable' => 'stable',
+                'choices' => PackageStabilityType::STABILITY_LEVELS,
+                'constraints' => [
+                    new Assert\Choice(['choices' => PackageStabilityType::STABILITY_LEVELS]),
+                ],
+            ])
+            ->add('minimumStabilityPerPackage', CollectionType::class, [
+                'required' => false,
+                'allow_add' => true,
+                'allow_delete' => true,
+                'delete_empty' => true,
+                'entry_type' => PackageStabilityType::class,
+                'prototype' => true,
+                'attr' => [
+                    'class' => 'collection_require',
+                ],
+                'constraints' => [
+                    new Assert\Valid(),
                 ],
             ])
             ->add('includeFilename', TextType::class, [
@@ -123,6 +173,7 @@ END
             ->add('config', TextareaType::class, [
                 'required' => false,
                 'empty_data' => '',
+                'trim' => true,
                 'attr' => [
                     'rel' => 'tooltip',
                     'data-title' => 'a configuration options in json format',
@@ -151,5 +202,6 @@ END
                     'data-title' => 'when not checked, the JSON_PRETTY_PRINT option will not be used on encoding.',
                 ],
             ]);
+        $builder->get('config')->addModelTransformer(new JsonTextTransformer());
     }
 }

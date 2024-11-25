@@ -1,4 +1,5 @@
 imports:
+  - { resource: defaults.yml }
   - { resource: parameters.yml }
   - { resource: security.yml }
 
@@ -7,9 +8,8 @@ parameters:
 
 framework:
   secret: "%secret%"
-  session: ~
-  templating:
-    engines: ['twig']
+  session:
+    save_path: '%kernel.project_dir%/var/sessions'
   assets: ~
   profiler:
     collect: false
@@ -20,3 +20,20 @@ framework:
 
 twig:
   form_themes: ['bootstrap_3_layout.html.twig']
+  globals:
+    satis: '@Playbloom\Satisfy\Model\Configuration'
+
+monolog:
+  handlers:
+    errors:
+      type: fingers_crossed
+      action_level: '%log.level%'
+      handler: '%log.handler%'
+      bubble: false
+    file_log:
+      type: rotating_file
+      path: "%kernel.logs_dir%/%kernel.environment%.log"
+      max_files: 30
+    stderr:
+      type: stream
+      path: "php://stderr"

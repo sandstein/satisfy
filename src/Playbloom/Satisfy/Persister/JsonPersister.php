@@ -2,8 +2,10 @@
 
 namespace Playbloom\Satisfy\Persister;
 
+use Playbloom\Satisfy\Model\Abandoned;
 use Playbloom\Satisfy\Model\Configuration;
 use Playbloom\Satisfy\Model\PackageConstraint;
+use Playbloom\Satisfy\Model\PackageStability;
 use Symfony\Component\Serializer\Encoder\JsonEncode;
 use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
 use Symfony\Component\Serializer\SerializerAwareTrait;
@@ -26,7 +28,7 @@ class JsonPersister implements PersisterInterface
 
     public function __construct(PersisterInterface $persister, SerializerInterface $serializer, string $satisClass)
     {
-        $this->serializer = $serializer;
+        $this->setSerializer($serializer);
         $this->persister = $persister;
         $this->satisClass = $satisClass;
     }
@@ -48,17 +50,22 @@ class JsonPersister implements PersisterInterface
             AbstractObjectNormalizer::CALLBACKS => [
                 'repositories' => [$this, 'normalizeRepositories'],
                 'require' => [$this, 'normalizeRequire'],
+                'blacklist' => [$this, 'normalizeRequire'],
+                'abandoned' => [$this, 'normalizeAbandoned'],
+                'minimumStabilityPerPackage' => [$this, 'normalizePackageStability'],
             ],
             JsonEncode::OPTIONS => JSON_PRETTY_PRINT,
         ]);
         $this->persister->flush($jsonString);
     }
 
-    public function normalizeRepositories($repositories)
+    public function normalizeRepositories($repositories): array
     {
         if ($repositories instanceof \ArrayIterator) {
             return array_values($repositories->getArrayCopy());
         }
+
+        return [];
     }
 
     /**
@@ -77,5 +84,46 @@ class JsonPersister implements PersisterInterface
         }
 
         return $require;
+    }
+
+    /**
+     * @param Abandoned[]|null $abandoned
+     *
+     * @return array<string, bool|string>|null
+     */
+    public function normalizeAbandoned($abandoned)
+    {
+        if (empty($abandoned)) {
+            return null;
+        }
+        $list = [];
+        foreach ($abandoned as $package) {
+            $replacement = $package->getReplacement();
+            if (empty($replacement)) {
+                $replacement = true;
+            }
+            $list[$package->getPackage()] = $replacement;
+        }
+
+        return $list;
+    }
+
+    /**
+     * @param PackageStability[] $list
+     *
+     * @return array<string, string>|null
+     */
+    public function normalizePackageStability(array $list): ?array
+    {
+        if (empty($list)) {
+            return null;
+        }
+
+        $data = [];
+        foreach ($list as $item) {
+            $data[$item->getPackage()] = $item->getStability();
+        }
+
+        return $data;
     }
 }

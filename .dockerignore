@@ -1,0 +1,15 @@
+/.github
+/config/parameters.yml
+/tests
+/var
+.idea
+.git
+.gitignore
+.php-cs-fixer.dist.php
+.phpstorm.meta.php
+.phpunit.cache
+docker-compose.yml
+ide-twig.json
+phpstan.neon.dist
+phpunit.xml.dist
+satis.json
